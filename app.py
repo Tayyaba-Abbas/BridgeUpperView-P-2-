@@ -32,7 +32,7 @@ logging.basicConfig(
 
 # Initialize the Flask app
 app = Flask(__name__)
-logging.info(f"Model file exists: {os.path.exists('model/complete_tower_maskrcnn_resnet50_fpn_v2_augmented706_imgs_epochs320.pth')}")
+logging.info(f"Model file exists: {os.path.exists(r'model/BridgeUpperView_maskrcnn_resnet50_fpn_v2_BridgeUpperView(P#3).pth')}")
 # Increase the request timeout
 @app.before_request
 def set_timeout():
@@ -43,7 +43,7 @@ app.config['RESULTS_FOLDER'] = os.path.join('static', 'results')  # save results
 app.config['ALLOWED_EXTENSIONS'] = {'jpg', 'jpeg', 'png', 'JPG', 'JPEG', 'PNG'}
 dtype = torch.float32
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB
-def resize_with_padding(image, target_size=(2048, 2048)):
+def resize_with_padding(image, target_size=(640, 640)):
     orig_width, orig_height = image.size
     ratio = min(target_size[0] / orig_width, target_size[1] / orig_height)
 
@@ -67,7 +67,9 @@ os.makedirs(app.config['RESULTS_FOLDER'], exist_ok=True)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 logging.info(f"Using device: {device}")
 # Define class names (for the number of classes)
-class_names = ["background", "Bridge", "Divider", "Lane"]
+# At the top of your script
+class_namess = ['Background', 'Barrier', 'Bridges', 'Divider1', 'Divider2', 'Lane', 'LaneMarker']
+
 
 # Initialize Mask R-CNN model with pretrained weights
 model = maskrcnn_resnet50_fpn_v2(weights=None)
@@ -80,10 +82,10 @@ in_features_mask = model.roi_heads.mask_predictor.conv5_mask.in_channels
 dim_reduced = model.roi_heads.mask_predictor.conv5_mask.out_channels
 
 # Replace the box predictor
-model.roi_heads.box_predictor = FastRCNNPredictor(in_channels=in_features_box, num_classes=len(class_names))
+model.roi_heads.box_predictor = FastRCNNPredictor(in_channels=in_features_box, num_classes=len(class_namess))
 
 # Replace the mask predictor
-model.roi_heads.mask_predictor = MaskRCNNPredictor(in_channels=in_features_mask, dim_reduced=dim_reduced, num_classes=len(class_names))
+model.roi_heads.mask_predictor = MaskRCNNPredictor(in_channels=in_features_mask, dim_reduced=dim_reduced, num_classes=len(class_namess))
 
 # Set the model's device and data type
 model.to(device=device)
@@ -92,8 +94,10 @@ model.to(device=device)
 model.device = device
 model.name = 'complete_tower_maskrcnn_resnet50_fpn_v2_augmented706_imgs_epochs320'
 
-model.load_state_dict(torch.load('model/BridgeUpperView_maskrcnn_resnet50_fpn_v2_BridgeUpperView(P#2).pth', map_location=device))
+model.load_state_dict(torch.load(r'model/BridgeUpperView_maskrcnn_resnet50_fpn_v2_BridgeUpperView(P#3).pth', map_location=device))
+
 print("Model weights loaded successfully.")
+
 logging.info("Model weights loaded successfully.")
 
 
@@ -222,12 +226,12 @@ def process_image(image_path, start_lat, start_lon, end_lat, end_lon):
 
 
         # Set the confidence threshold
-        threshold = 0.9
+        threshold = 0.85
         # Filter out predictions based on the threshold
         scores_mask = model_output[0]['scores'] > threshold
         logging.info(f"Filtered {scores_mask.sum()} predictions based on threshold.")
         print(f"Filtered masks, remaining predictions: {scores_mask.sum()}")
-
+        class_names = ['Background', 'Barrier', 'Bridges', 'Divider1', 'Divider2', 'Lane', 'LaneMarker']
         pred_masks = model_output[0]['masks'][scores_mask]
         pred_labels = [class_names[label] for label in model_output[0]['labels'][scores_mask]]
         pred_bboxes = model_output[0]['boxes'][scores_mask]
@@ -239,51 +243,27 @@ def process_image(image_path, start_lat, start_lon, end_lat, end_lon):
         logging.info(f"Processing predictions: {len(pred_labels)} components detected.")
 
         print(f"Predictions processed. Number of masks: {len(pred_labels)}")
-        """
-        #base_pattern_count = pred_labels.count("Cross Pattern")
-        # Get the indices of insulators
-        #insulator_indices = [i for i, label in enumerate(pred_labels) if label == "Insulator"]
 
-       # Select a random insulator if available
-        #if insulator_indices:
-        #  logging.info(f"In if of insulator_indices Found {len(insulator_indices)} insulators")
-          print(f"Found {len(insulator_indices)} insulators")
-          random_insulator_index = random.choice(insulator_indices)
-           # Convert tensor values to float and round them
-          random_insulator_height = pred_bboxes[random_insulator_index][3].item() - pred_bboxes [random_insulator_index][1].item()  # Height of random insulator
-          random_insulator_width = pred_bboxes[random_insulator_index][2].item() - pred_bboxes     [random_insulator_index][0].item()  # Width of random insulator
-
-         # Round to two decimal places
-          random_insulator_height = round(random_insulator_height, 2)
-          random_insulator_width = round(random_insulator_width, 2)
-        else:
-          print("No insulator found in the predictions")
-          logging.info(f"No insulator found in the predictions")
-          random_insulator_index = None
-          random_insulator_height = random_insulator_width = None
-        """
 
         print("Annotating the image with predictions...")
         logging.info(f"Annotating the image with predictions...")
         # Define custom color mapping for each class
         # Assuming class_names is a list of category names
-        class_namesss = [
-            "background",     # ID 0
-            "Bridge",   # ID 1
-            "Divider",           # ID 2
-            "Lane"      # ID 3
-          
+        
+        class_names = ['Background', 'Barrier', 'Bridges', 'Divider1', 'Divider2', 'Lane', 'LaneMarker']
 
-        ]
 
         # Color mapping for each class
 
         # Color mapping for each class
         int_colors = {
-            1: (0, 0, 0),      # Bridge (Bright Red)
-            2: (0, 255, 0),      # Divider (Bright Green)
-            3: (255, 255, 255),      # Lane (Bright Blue)
-            
+           0: (0, 0, 0),         # Background - black
+           1: (255, 0, 0),       # Barrier - red
+           2: (128, 0, 128),     # Bridges - purple
+           3: (0, 255, 255),     # Divider1 - cyan
+           4: (255, 165, 0),     # Divider2 - orange
+           5: (0, 255, 0),       # Lane - green
+           6: (255, 255, 0)      # LaneMarker - yellow
         }
          # Extract predicted colors for the predicted labels
         pred_colors = []
@@ -305,8 +285,8 @@ def process_image(image_path, start_lat, start_lon, end_lat, end_lon):
         for i, (label, mask, bbox) in enumerate(zip(pred_labels, pred_masks, pred_bboxes)):
 
            # Get the class index from class_names (ensure it matches the class label)
-           if label in class_namesss:
-              class_idx = class_namesss.index(label)
+           if label in class_names:
+              class_idx = class_names.index(label)
            else:
               class_idx = 0  # Default to 'background' if the label is not found
 
@@ -322,7 +302,7 @@ def process_image(image_path, start_lat, start_lon, end_lat, end_lon):
              boxes=pred_bboxes,
              labels=[f"{label}\n{prob*100:.2f}%" for label, prob in zip(pred_labels, scores_mask)],  # Ensure class names and confidence scores appear
              colors=pred_colors,
-             width=7  # Increase this number to make the boxes thicker
+             width=3  # Increase this number to make the boxes thicker
             )
            
 
@@ -331,23 +311,39 @@ def process_image(image_path, start_lat, start_lon, end_lat, end_lon):
         # Convert the annotated tensor back to an image
         annotated_img = transforms.ToPILImage()(annotated_tensor)
         logging.info("Annotation complete.")
+      
         # Initialize bridge dimensions
         bridge_width = None
         bridge_height = None
+        lane_marker_width = None
+        lane_marker_height = None
        
         # Initialize lane width
         lane_widths = []
         for label, bbox in zip(pred_labels, pred_bboxes):
             x, y, width, height = bbox
-            if label == "Bridge" and bridge_width is None:
+            if label == "Bridges" and bridge_width is None:
                 bridge_width = width
                 bridge_height = height
             elif label == "Lane":
                 lane_widths.append(width)  # Save all Lane widths
+            elif label == "LaneMarker" and lane_marker_width is None:
+               lane_marker_width = width
+               lane_marker_height = height
        
         # Print all lane widths
         for i, lw in enumerate(lane_widths):
            print(f"Lane {i+1} Width: {lw:.2f} pixels")
+        # Output first LaneMarker dimensions
+        if lane_marker_width is not None:
+            print(f"Width of detected LaneMarker: {lane_marker_width:.2f} pixels")
+        if lane_marker_height is not None:
+            print(f"Height of detected LaneMarker: {lane_marker_height:.2f} pixels")
+        if bridge_width is not None:
+            print(f"Width of detected bridge: {bridge_width:.2f} pixels")
+        if bridge_height is not None:
+            print(f"Height of detected bridge: {bridge_height:.2f} pixels")
+       
        
         # Optionally, save to a dictionary or DataFrame
         dimension_data = {
@@ -367,15 +363,22 @@ def process_image(image_path, start_lat, start_lon, end_lat, end_lon):
         else:
             print("No 'Lane' detected in the predictions.")
         lane_count = pred_labels.count("Lane")
-        divider_count = pred_labels.count("Divider")
+        # Check for Divider1 and Divider2 in predictions
+        if "Divider2" in pred_labels:
+            divider_type= "General barrier of rectangular geometry"
+            print("Divider Type: General barrier of rectangular geometry")
+        
+        if "Divider1" in pred_labels:
+            divider_type= "Barrier with extended bottom outside"
+            print("Divider Type: Barrier with extended bottom outside")
         if lane_widths:  # check if the list is not empty
             total_lane_width = sum(lane_widths)
             print(f"Total Lane Width: {total_lane_width:.2f} pixels")
         else:
             total_lane_width = None
             print("No lanes detected.")
-        standard_lane_width=3.5
-        width = (((standard_lane_width*2) / total_lane_width) * bridge_width) + 0.12    #both sides         yellow marker
+        standard_lanemarker_height=3
+        width = ((standard_lanemarker_height / min(lane_marker_width, lane_marker_height)) * bridge_width) + 0.12    #both sides         yellow marker
         R = 6371.0
 
         # Convert degrees to radians
@@ -417,7 +420,7 @@ def process_image(image_path, start_lat, start_lon, end_lat, end_lon):
         logging.info("Dimension data prepared.")
     
         logging.info(f"Dimensions Table:\n{tabulate(dimension_df, headers='keys', tablefmt='grid')}\n")
-        return test_img, annotated_img, dimension_df, lane_count, divider_count
+        return test_img, annotated_img, dimension_df, lane_count, divider_type
         
 
     except Exception as e:

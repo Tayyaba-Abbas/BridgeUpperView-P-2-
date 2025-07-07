@@ -2,17 +2,12 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Electric Tower Analysis</title>
-    
+    <title>Bridge Detection and Parameter Extraction</title>
     <style>
-        /* Basic styling for layout */
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Segoe UI', sans-serif;
             margin: 0;
-            padding: 0;
-            background-color: #f0f8ff;
+            background-color: #f4f4f4;
         }
 
         header {
@@ -22,149 +17,153 @@
             text-align: center;
         }
 
-        nav {
-            display: flex;
-            justify-content: center;
-            background-color: #34495e;
-        }
-
-        nav a {
-            color: white;
-            padding: 15px 20px;
-            text-decoration: none;
-            text-align: center;
-        }
-
-        nav a:hover {
-            background-color: #1abc9c;
-            color: white;
-        }
-
         .container {
-            width: 80%;
-            margin: auto;
-            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 30px;
         }
 
-        .section-title {
-            font-size: 2em;
-            margin-bottom: 10px;
-            color: #2c3e50;
+        .tabs {
+            display: flex;
+            width: 60%;
+            margin: 20px auto;
+            border-radius: 5px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
-        .section-content {
-            font-size: 1.2em;
-            color: #555;
-            margin-bottom: 30px;
+        .tab-button {
+            flex: 1;
+            padding: 12px 0;
+            text-align: center;
+            background-color: #ecf0f1;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+
+        .tab-button.active {
+            background-color: #3498db;
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+            background-color: white;
+            width: 60%;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-radius: 8px;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+        }
+
+        label {
+            margin-top: 10px;
+            margin-bottom: 5px;
+        }
+
+        input[type="file"],
+        input[type="text"] {
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            width: 100%;
+            box-sizing: border-box;
         }
 
         .cta-button {
-            background-color: #1abc9c;
+            margin-top: 20px;
+            padding: 12px;
+            background-color: #3498db;
             color: white;
-            padding: 10px 20px;
-            text-decoration: none;
-            font-size: 1.2em;
+            font-weight: bold;
+            border: none;
             border-radius: 5px;
-        }
-
-        .cta-button:hover {
-            background-color: #16a085;
-        }
-
-        .upload-section {
-            margin-top: 30px;
-            text-align: center;
-        }
-
-        .upload-section label {
-            display: block;
-            margin-bottom: 10px;
-            font-size: 1.2em;
-            color: #2c3e50;
-        }
-
-        .upload-section input[type="file"] {
-            margin-bottom: 20px;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
+            cursor: pointer;
         }
 
         footer {
             background-color: #2c3e50;
             color: white;
             text-align: center;
-            padding: 10px;
-            margin-top: 20px;
+            padding: 10px 0;
+            margin-top: 50px;
         }
+
     </style>
+
+    <script>
+        function showTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            document.getElementById(tabId + '-btn').classList.add('active');
+        }
+
+        window.onload = function () {
+            showTab('super-structure');
+        };
+    </script>
 </head>
 <body>
-    <header>
-        <h1>Electric Tower Analysis</h1>
-        <p>Optimizing Electricity Distribution with AI-Driven Insights</p>
-    </header>
 
-    <nav>
-        <a href="#about">About</a>
-        <a href="#services">Services</a>
-        <a href="#upload">Upload</a>
-        <a href="#contact">Contact</a>
-    </nav>
+<header>
+    <h1>Bridge Detection and Parameter Extraction</h1>
+  
+</header>
 
-    <div class="container">
-        <section id="about">
-            <h2 class="section-title">About Us</h2>
-            <p class="section-content">
-                Welcome to Electric Tower Analysis! Our platform leverages AI-driven insights to enhance electricity distribution efficiency. 
-                We focus on optimizing electric tower structures to ensure reliable power supply while minimizing resource waste.
-            </p>
-        </section>
+<div class="container">
 
-        <section id="services">
-            <h2 class="section-title">Our Services</h2>
-            <p class="section-content">
-                Our services include:
-                <ul>
-                    <li>Electric Tower Analysis: Assessing tower height, width, and structure for optimized power supply.</li>
-                    <li>Bed Sore Analysis: Monitoring electrical infrastructure for maintenance and repair needs.</li>
-                    <li>Soil Fertility Analysis: Using AI to map out regions for efficient resource allocation and energy consumption.</li>
-                </ul>
-            </p>
-        </section>
-
-        <section id="upload" class="upload-section">
-            <h2 class="section-title">Upload an Image</h2>
-            <p class="section-content">
-                Upload an image of an electric tower or related infrastructure for analysis. Our AI will process the image and provide insights.
-            </p>
-           <form action="/predict" method="POST" enctype="multipart/form-data">
-              <label for="image-upload">Choose an image to upload:</label>
-              <input type="file" id="image-upload" name="file" accept="image/*" required><br><br>
-          
-              <label>Start Latitude: <input type="text" name="start_lat" required></label><br>
-              <label>Start Longitude: <input type="text" name="start_lon" required></label><br>
-              <label>End Latitude: <input type="text" name="end_lat" required></label><br>
-              <label>End Longitude: <input type="text" name="end_lon" required></label><br><br>
-          
-              <button type="submit" class="cta-button">Upload & Calculate</button>
-            </form>
-
-            
-            
-        </section>
-
-        <section id="contact">
-            <h2 class="section-title">Contact Us</h2>
-            <p class="section-content">
-                Have any questions or want to get started? Reach out to us:
-            </p>
-            <a href="mailto:contact@electricpower.com" class="cta-button">Email Us</a>
-        </section>
+    <div class="tabs">
+        <div id="super-structure-btn" class="tab-button" onclick="showTab('super-structure')">Super Structure</div>
+        <div id="sub-structure-btn" class="tab-button" onclick="showTab('sub-structure')">Sub Structure</div>
     </div>
 
-    <footer>
-        <p>&copy; 2024 Electric Tower Analysis | All rights reserved.</p>
-    </footer>
+    <!-- Super Structure Tab -->
+    <div id="super-structure" class="tab-content">
+        <h2>Super Structure Analysis</h2>
+        <p>Upload an image of a bridge for analysis.</p>
+        <form action="/predict" method="POST" enctype="multipart/form-data">
+            <label for="image-upload">Choose an image to upload:</label>
+            <input type="file" id="image-upload" name="file" accept="image/*" required>
+
+            <label>Start Latitude:</label>
+            <input type="text" name="start_lat" required>
+
+            <label>Start Longitude:</label>
+            <input type="text" name="start_lon" required>
+
+            <label>End Latitude:</label>
+            <input type="text" name="end_lat" required>
+
+            <label>End Longitude:</label>
+            <input type="text" name="end_lon" required>
+
+            <button type="submit" class="cta-button">Upload & Calculate</button>
+        </form>
+    </div>
+
+    <!-- Sub Structure Tab -->
+    <div id="sub-structure" class="tab-content">
+        <h2>Sub Structure Analysis</h2>
+        <p>This section will provide insights into the substructure of the bridge.</p>
+        <!-- Add any future forms or upload areas here -->
+    </div>
+
+</div>
+
+<footer>
+    <p>&copy; 2025 Bridge Analysis | All rights reserved.</p>
+</footer>
+
 </body>
 </html>
