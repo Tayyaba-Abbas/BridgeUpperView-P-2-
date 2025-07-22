@@ -151,10 +151,11 @@ from midas.dpt_depth import DPTDepthModel
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+base_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Load MiDaS model and transformation
 def load_midas_model():
-    model_path = r'model\dpt_large_384.pt'
+    model_path = os.path.join(base_dir, 'model', 'dpt_large_384.pt')  # ✅ CORRECT
     model = DPTDepthModel(
         path=model_path,
         backbone="vitl16_384",
@@ -484,27 +485,32 @@ def process_image(image_path, start_lat, start_lon, end_lat, end_lon, device):
         print("\n--- Depth Stats Per Detected Instance ---")
         for label, stats in depth_stats.items():
             print(f"{label}: {stats}")
-              
+        logging.info("wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww")
         # Initialize bridge dimensions
         bridge_width = None
         bridge_height = None
         lane_marker_width = None
         lane_marker_height = None
         walkway_width = None
-       
+        logging.info("tttttttttttttttttttttttttttttttttttttttttttttttttt")
         # Initialize lane width
         lane_widths = []
         for label, bbox in zip(pred_labels, pred_bboxes):
+            logging.info("iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii")
             x, y, width, height = bbox
             if label == "Bridge" and bridge_width is None:
+                logging.info("ppppppppppppppppppppppppppppppp")
                 bridge_width = width
                 bridge_height = height
             elif label == "Lane":
+                logging.info("jjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj")
                 lane_widths.append(width)  # Save all Lane widths
             elif label == "LaneMarker" and lane_marker_width is None:
+               logging.info("uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu")
                lane_marker_width = width
                lane_marker_height = height
             elif label == "Walkway" and walkway_width is None:
+               logging.info("qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq")
                walkway_width = width
        
         # Print all lane widths
