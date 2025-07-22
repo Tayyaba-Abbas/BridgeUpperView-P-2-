@@ -1,3 +1,4 @@
+import numpy as np
 import logging
 from flask import Flask, request, jsonify, send_file, render_template
 import os
@@ -10,7 +11,7 @@ from torchvision.models.detection import maskrcnn_resnet50_fpn_v2
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
 import pandas as pd
-import numpy as np
+
 import matplotlib.pyplot as plt
 from PIL import Image as PilImage
 from midas.dpt_depth import DPTDepthModel
@@ -37,7 +38,7 @@ logging.basicConfig(
 
 # Initialize the Flask app
 app = Flask(__name__)
-logging.info(f"Model file exists: {os.path.exists(r'model/BridgeUpperView_maskrcnn_resnet50_fpn_v2_BridgeUpperView(P#4).pth')}")
+logging.info(f"Model file exists: {os.path.exists(r'model/BridgeUpperView_maskrcnn_resnet50_fpn_v2_BridgeUpperView.P.4.pth')}")
 # Increase the request timeout
 @app.before_request
 def set_timeout():
@@ -112,7 +113,7 @@ model.to(device=device)
 model.device = device
 model.name = 'complete_tower_maskrcnn_resnet50_fpn_v2_augmented706_imgs_epochs320'
 
-model.load_state_dict(torch.load(r'model/BridgeUpperView_maskrcnn_resnet50_fpn_v2_BridgeUpperView(P#4).pth', map_location=device))
+model.load_state_dict(torch.load(r'model/BridgeUpperView_maskrcnn_resnet50_fpn_v2_BridgeUpperView.P.4.pth', map_location=device))
 
 print("Model weights loaded successfully.")
 
@@ -169,10 +170,10 @@ def load_midas_model():
 
 def get_depth_map_from_image(test_img_pil, midas, transform, device):
     logging.info("tttttttttttttttttttttttttttttttttttttttt")
-    
+
     input_tensor = transform(test_img_pil).unsqueeze(0)  # ✅ FIXED: Add batch dimension
     input_tensor = input_tensor.to(device)
-    
+
     logging.info("yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy")
 
     with torch.no_grad():
@@ -247,7 +248,7 @@ def allowed_file(filename):
 # Function to process and predict on the uploaded image
 def process_image(image_path, start_lat, start_lon, end_lat, end_lon, device):
     try:
-        # Load the image    
+        # Load the image
         logging.info(f"Loading image from path: {image_path}")
         test_img = Image.open(image_path).convert("RGB")
         # Resize image while maintaining aspect ratio
@@ -277,7 +278,6 @@ def process_image(image_path, start_lat, start_lon, end_lat, end_lon, device):
             # Resize the image to (640, 640)
             #resized_img = test_img.resize((640, 640))
             #logging.info(f"Image size after resizing: {resized_img.size}")
-
             try:
                 # Manually convert the resized image to a tensor
                 # Convert image to a numpy array (H, W, C)
@@ -363,17 +363,42 @@ def process_image(image_path, start_lat, start_lon, end_lat, end_lon, device):
             logging.error("Transformation failed, tensor is None.")
 
 
-        # Set the confidence threshold
-        threshold = 0.7
-        # Filter out predictions based on the threshold
-        scores_mask = model_output[0]['scores'] > threshold
-        logging.info(f"Filtered {scores_mask.sum()} predictions based on threshold.")
-        print(f"Filtered masks, remaining predictions: {scores_mask.sum()}")
+
+
         class_names = ['Background', 'Barrier', 'Bridge', 'Divider1', 'Divider2', 'Lane', 'LaneMarker', 'Walkway']
+        bridge_index = class_names.index('Bridge')
+
+        threshold = 0.7
+        min_threshold = 0.3
+        step = 0.05
+
+        bridge_found = False
+
+        while threshold >= min_threshold:
+           scores_mask = model_output[0]['scores'] > threshold
+           pred_labels_ids = model_output[0]['labels'][scores_mask]
+
+           if bridge_index in pred_labels_ids.tolist():
+              bridge_found = True
+              logging.info(f"Bridge found at threshold: {threshold}")
+              print(f"Bridge found at threshold: {threshold}")
+              break
+
+           threshold -= step
+
+        if not bridge_found:
+           logging.warning("Bridge not found even at minimum threshold.")
+           print("Bridge not found even at minimum threshold.")
+
+        # Final filtered predictions after appropriate threshold
+        scores_mask = model_output[0]['scores'] > threshold
         pred_masks = model_output[0]['masks'][scores_mask]
-        pred_label_ids = model_output[0]['labels'][scores_mask]  # these are numeric
-        pred_labels = [class_names[label] for label in model_output[0]['labels'][scores_mask]]
+        pred_label_ids = model_output[0]['labels'][scores_mask]
+        pred_labels = [class_names[label] for label in pred_label_ids]
         pred_bboxes = model_output[0]['boxes'][scores_mask]
+
+        print(f"Filtered {len(pred_labels)} predictions after threshold adjustment.")
+
 
         # Resize the masks to the original image size
         target_size = (test_img.size[1], test_img.size[0])  # (W, H)
@@ -388,7 +413,7 @@ def process_image(image_path, start_lat, start_lon, end_lat, end_lon, device):
         logging.info(f"Annotating the image with predictions...")
         # Define custom color mapping for each class
         # Assuming class_names is a list of category names
-        
+
         class_names = ['Background', 'Barrier', 'Bridge', 'Divider1', 'Divider2', 'Lane', 'LaneMarker', 'Walkway']
 
 
@@ -445,15 +470,15 @@ def process_image(image_path, start_lat, start_lon, end_lat, end_lon, device):
              colors=pred_colors,
              width=3  # Increase this number to make the boxes thicker
             )
-           
+
 
         print("Finished annotating the image.")
         logging.info(f"Finished annotating the image.")
         # Convert the annotated tensor back to an image
         annotated_img = transforms.ToPILImage()(annotated_tensor)
         logging.info("Annotation complete.")
-        
-        
+
+
         # Load MiDaS model
         midas, device = load_midas_model()
         midas_transform = get_transform((384, 384))
@@ -464,9 +489,9 @@ def process_image(image_path, start_lat, start_lon, end_lat, end_lon, device):
         try:
           test_img_pil = convert_to_pil(test_img)
         except Exception as e:
-           print(f"Error during image conversion: {e}")       
-        
-        
+           print(f"Error during image conversion: {e}")
+
+
         # Get depth map
         depth_map = get_depth_map_from_image(test_img_pil, midas, midas_transform, device)
         logging.info("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk")
@@ -474,7 +499,7 @@ def process_image(image_path, start_lat, start_lon, end_lat, end_lon, device):
         print("Depth map shape:", depth_map.shape)
         logging.info("lllllllllllllllllllllllllllllllllllllllllllllllllllllll")
         print("Depth map sample values (min, max):", depth_map.min(), depth_map.max())
-        
+
         # Convert pred_masks (list of Mask objects) to boolean tensor
         pred_masks_tensor = torch.stack([m.squeeze(0).bool() for m in pred_masks])
         logging.info("ooooooooooooooooooooooooooooooooooooooooooooooo")
@@ -485,6 +510,7 @@ def process_image(image_path, start_lat, start_lon, end_lat, end_lon, device):
         print("\n--- Depth Stats Per Detected Instance ---")
         for label, stats in depth_stats.items():
             print(f"{label}: {stats}")
+
         logging.info("wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww")
         # Initialize bridge dimensions
         bridge_width = None
@@ -512,7 +538,7 @@ def process_image(image_path, start_lat, start_lon, end_lat, end_lon, device):
             elif label == "Walkway" and walkway_width is None:
                logging.info("qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq")
                walkway_width = width
-       
+
         # Print all lane widths
         for i, lw in enumerate(lane_widths):
            print(f"Lane {i+1} Width: {lw:.2f} pixels")
@@ -527,14 +553,14 @@ def process_image(image_path, start_lat, start_lon, end_lat, end_lon, device):
             print(f"Height of detected bridge: {bridge_height:.2f} pixels")
         if walkway_width is not None:
             print(f"Width of detected Walkway: {walkway_width:.2f} pixels")
-       
-       
+
+
         # Optionally, save to a dictionary or DataFrame
         dimension_data = {
            "Lane Index": list(range(1, len(lane_widths) + 1)),
            "Lane Width (pixels)": lane_widths
         }
-       
+
         import pandas as pd
         df_lanes = pd.DataFrame(dimension_data)
         print(df_lanes)
@@ -543,7 +569,7 @@ def process_image(image_path, start_lat, start_lon, end_lat, end_lon, device):
             print(f"Width of detected Bridge: {bridge_width:.2f} pixels")
         if bridge_height is not None:
             print(f"Height of detected Bridge: {bridge_height:.2f} pixels")
-        
+
         else:
             print("No 'Lane' detected in the predictions.")
         lane_count = pred_labels.count("Lane")
@@ -551,7 +577,7 @@ def process_image(image_path, start_lat, start_lon, end_lat, end_lon, device):
         if "Divider2" in pred_labels:
             divider_type= "General barrier of rectangular geometry"
             print("Divider Type: General barrier of rectangular geometry")
-        
+
         if "Divider1" in pred_labels:
             divider_type= "Barrier with extended bottom outside"
             print("Divider Type: Barrier with extended bottom outside")
@@ -561,28 +587,28 @@ def process_image(image_path, start_lat, start_lon, end_lat, end_lon, device):
         else:
             total_lane_width = None
             print("No lanes detected.")
-        
+
         # Initialize depth variables
         lane_marker_depth = None
         bridge_depth = None
-        walkway_depth = None  
-        
+        walkway_depth = None
+
         # Extract mean depths
         if "LaneMarker #1" in depth_stats:
             lane_marker_depth = depth_stats["LaneMarker #1"]["mean"]
-        
+
         if "Bridge #1" in depth_stats:
             bridge_depth = depth_stats["Bridge #1"]["mean"]
-        
-        
+
+
         if "Walkway #1" in depth_stats:
             walkway_depth = depth_stats["Walkway #1"]["mean"]
-        
+
         # Show extracted depths
         print(f"\nLane Marker Mean Depth: {lane_marker_depth}")
         print(f"Bridge Mean Depth: {bridge_depth}")
         print(f"Walkway Mean Depth: {walkway_depth}")
-        
+
         # Print filtered class labels
         print("Filtered Class Labels:")
         for label_id, label_name in zip(pred_label_ids.tolist(), pred_labels):
@@ -624,7 +650,7 @@ def process_image(image_path, start_lat, start_lon, end_lat, end_lon, device):
             print(f"Total Width with depth: {width}")
             geo_width = (scale_factor * bridge_width)
             print(f"Total Width without depth: {geo_width}")
-        
+
         if geo_width > width:
             final_width = (width * 0.2) + (0.8 * geo_width)
         else:
@@ -637,15 +663,15 @@ def process_image(image_path, start_lat, start_lon, end_lat, end_lon, device):
         lon1_rad = math.radians(start_lon)
         lat2_rad = math.radians(end_lat)
         lon2_rad = math.radians(end_lon)
-    
+
         # Differences
         dlat = lat2_rad - lat1_rad
         dlon = lon2_rad - lon1_rad
-    
+
         # Haversine formula
         a = math.sin(dlat / 2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2)**2
         c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-    
+
         bridge_length_km = R * c
         bridge_length_meters = bridge_length_km * 1000
         print(f"The total length of the bridge is approximately {bridge_length_meters:.2f} meters.")
@@ -657,8 +683,8 @@ def process_image(image_path, start_lat, start_lon, end_lat, end_lon, device):
             "Estimated Length (m)": [f"{bridge_length_meters:.2f}"],
             "Estimated Width (m)": [f"{final_width:.2f}"]
         }
-        
-        
+
+
         dimension_df = pd.DataFrame(dimension_data)
         print("\n")
         # Display the DataFrame in a nice table format using tabulate
@@ -669,10 +695,10 @@ def process_image(image_path, start_lat, start_lon, end_lat, end_lon, device):
         # Inside process_image function before returning
         print(f"Returning images and dimensions: {test_img}, {annotated_img}, {dimension_df.shape}")
         logging.info("Dimension data prepared.")
-    
+
         logging.info(f"Dimensions Table:\n{tabulate(dimension_df, headers='keys', tablefmt='grid')}\n")
         return test_img, annotated_img, dimension_df, lane_count, divider_type
-        
+
 
     except Exception as e:
         logging.error(f"Error processing image: {e}")
@@ -702,7 +728,7 @@ def predict():
         start_lon = float(request.form["start_lon"])
         end_lat = float(request.form["end_lat"])
         end_lon = float(request.form["end_lon"])
-        
+
         if file.filename == '':
             print("No selected file")
             logging.warning("No selected file.")
